@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Travel Planner Concierge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Marked.js for markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+
+<style>
+  :root {
+    --primary: #0284c7;
+    --primary-glow: rgba(2, 132, 199, 0.4);
+    --accent: #f59e0b;
+    --accent-glow: rgba(245, 158, 11, 0.35);
+    --bg-glass: rgba(15, 23, 42, 0.85);
+    --card-glass: rgba(30, 41, 59, 0.72);
+    --border-glass: rgba(255, 255, 255, 0.12);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: var(--text-main);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #090d16;
+  }
+
+  /* --- Atmospheric Travel Backdrop & Effects --- */
+  .bg-container {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .bg-image {
+    position: absolute;
+    top: -5%; left: -5%; width: 110%; height: 110%;
+    background-image: url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=2000&q=80');
+    background-size: cover;
+    background-position: center 35%;
+    filter: brightness(0.42) saturate(1.25);
+    transform: scale(1);
+    animation: slowDrift 45s infinite alternate ease-in-out;
+  }
+  .bg-gradient {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 15%, rgba(14, 165, 233, 0.15), transparent 70%),
+                linear-gradient(180deg, rgba(8, 12, 22, 0.65) 0%, rgba(8, 12, 22, 0.92) 100%);
+  }
+  @keyframes slowDrift {
+    0% { transform: scale(1) translate(0, 0); }
+    100% { transform: scale(1.08) translate(-15px, -10px); }
+  }
+
+  /* --- Main App Layout --- */
+  #app-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 1040px;
+    height: 94vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-glass);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--border-glass);
+    border-radius: 24px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+  }
+
+  header {
+    padding: 1.1rem 1.6rem;
+    background: rgba(15, 23, 42, 0.85);
+    border-bottom: 1px solid var(--border-glass);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  .header-logo {
+    font-size: 1.7rem;
+    filter: drop-shadow(0 2px 8px var(--accent-glow));
+  }
+  .header-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: #f8fafc;
+  }
+  .header-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    margin-left: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(56, 189, 248, 0.16);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 9999px;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .status-badge {
+    font-size: 0.82rem;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    border: 1px solid rgba(74, 222, 128, 0.25);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    background: #4ade80;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #4ade80;
+  }
+
+  #log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    scroll-behavior: smooth;
+  }
+  #log::-webkit-scrollbar { width: 6px; }
+  #log::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 3px; }
+
+  .welcome-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 18px;
+    padding: 1.5rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  }
+  .welcome-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #38bdf8;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .welcome-desc {
+    font-size: 0.92rem;
+    color: #cbd5e1;
+    line-height: 1.6;
+    margin-bottom: 1.2rem;
+  }
+  .prompt-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .chip {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+    padding: 0.5rem 0.9rem;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .chip:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: #38bdf8;
+    color: #fff;
+    transform: translateY(-2px);
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 90%;
+  }
+  .msg.user {
+    align-self: flex-end;
+  }
+  .msg.agent {
+    align-self: flex-start;
+  }
+
+  .bubble {
+    padding: 1.1rem 1.4rem;
+    border-radius: 18px;
+    line-height: 1.6;
+    font-size: 0.95rem;
+    position: relative;
+    word-break: break-word;
+  }
+  .msg.user .bubble {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 4px 18px rgba(2, 132, 199, 0.35);
+  }
+  .msg.agent .bubble {
+    background: var(--card-glass);
+    border: 1px solid var(--border-glass);
+    color: #f1f5f9;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Formatted Markdown inside Agent Bubble */
+  .chat-content h1, .chat-content h2, .chat-content h3, .chat-content h4 {
+    font-family: 'Outfit', sans-serif;
+    color: #38bdf8;
+    margin-top: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+  .chat-content h1:first-child, .chat-content h2:first-child, .chat-content h3:first-child {
+    margin-top: 0;
+  }
+  .chat-content h1 { font-size: 1.35rem; }
+  .chat-content h2 { font-size: 1.2rem; color: #7dd3fc; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.3rem; }
+  .chat-content h3 { font-size: 1.05rem; color: #bae6fd; }
+  .chat-content p { margin-bottom: 0.8rem; }
+  .chat-content p:last-child { margin-bottom: 0; }
+  .chat-content ul, .chat-content ol { margin-left: 1.4rem; margin-bottom: 0.8rem; }
+  .chat-content li { margin-bottom: 0.35rem; }
+  .chat-content strong { color: #f8fafc; font-weight: 700; }
+  .chat-content em { color: #fed7aa; }
+
+  /* Tables */
+  .chat-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.88rem;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .chat-content th {
+    background: rgba(30, 41, 59, 0.9);
+    color: #38bdf8;
+    padding: 0.65rem 0.8rem;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .chat-content td {
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+  }
+  .chat-content tr:last-child td { border-bottom: none; }
+  .chat-content tr:hover td { background: rgba(255, 255, 255, 0.03); }
+
+  /* Postcard & Images Rendering */
+  .postcard-wrap {
+    margin: 1.2rem 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(15, 23, 42, 0.75);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    transition: transform 0.3s ease;
+  }
+  .postcard-wrap:hover {
+    transform: scale(1.01);
+  }
+  .postcard-img {
+    width: 100%;
+    max-height: 440px;
+    object-fit: cover;
+    display: block;
+  }
+  .postcard-caption {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(15, 23, 42, 0.9);
+  }
+  .chat-content img {
+    max-width: 100%;
+    border-radius: 14px;
+    margin: 0.9rem 0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    display: block;
+  }
+
+  /* Action Buttons in Bubble Footer */
+  .bubble-footer {
+    margin-top: 1.2rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+  }
+  .btn-download-md {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 0.88rem;
+    padding: 0.65rem 1.1rem;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.35);
+    transition: all 0.2s ease;
+  }
+  .btn-download-md:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(245, 158, 11, 0.55);
+    color: #000;
+  }
+  .download-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  form#chat-form {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1.2rem 1.6rem;
+    background: rgba(15, 23, 42, 0.9);
+    border-top: 1px solid var(--border-glass);
+    align-items: center;
+  }
+  .chat-input {
+    flex: 1;
+    padding: 0.95rem 1.2rem;
+    background: rgba(30, 41, 59, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    color: #fff;
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+  .chat-input:focus {
+    border-color: #38bdf8;
+    background: rgba(30, 41, 59, 0.95);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+  }
+  .btn-send {
+    padding: 0.95rem 1.6rem;
+    border: none;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .btn-send:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.6);
+  }
+  .btn-send:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .typing-indicator {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px 8px;
+    align-items: center;
+  }
+  .typing-dot {
+    width: 8px; height: 8px;
+    background: #38bdf8;
+    border-radius: 50%;
+    animation: typingBounce 1.4s infinite ease-in-out both;
+  }
+  .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+  .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes typingBounce {
+    0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-container">
+  <div class="bg-image"></div>
+  <div class="bg-gradient"></div>
+</div>
+
+<div id="app-container">
+  <header>
+    <div class="header-brand">
+      <span class="header-logo">🌍</span>
+      <div>
+        <span class="header-title">AI Travel Planner</span>
+        <span class="header-badge">Gemini 3.7 Flash</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="status-badge"><span class="status-dot"></span> Online</span>
+    </div>
+  </header>
+
+  <div id="log">
+    <div class="welcome-card">
+      <div class="welcome-title">✨ Welcome to your AI Travel Concierge</div>
+      <div class="welcome-desc">
+        Tell me where you want to travel! I will calculate recommended days for must-visit spots, compare road vs flight costs, generate complete itineraries, illustrate iconic landmarks, and provide a downloadable Markdown package.
+      </div>
+      <div class="prompt-chips">
+        <div class="chip" onclick="usePrompt('Plan a trip from Delhi to Jaipur for 2 travelers. How many days are needed, road vs flight cost, assemble 3-day itinerary, illustrate an iconic sight, and export to markdown.')">
+          🕌 Delhi ➔ Jaipur for 2
+        </div>
+        <div class="chip" onclick="usePrompt('I want to travel from San Francisco to Seattle for 1 person. How many days for must-visit spots, driving vs flight transit cost, and a full itinerary?')">
+          🌲 San Francisco ➔ Seattle
+        </div>
+        <div class="chip" onclick="usePrompt('Mumbai to Goa road trip vs flight for 4 friends: approx costs, days required, must-visit beach clusters, and destination postcard.')">
+          🏖️ Mumbai ➔ Goa for 4
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <form id="chat-form" onsubmit="handleSend(event)">
+    <input id="chat-input" class="chat-input" placeholder="Where do you want to travel? (e.g., Delhi to Jaipur, SF to Seattle...)" autocomplete="off" autofocus>
+    <button type="submit" id="send-btn" class="btn-send">
+      <span>Send</span> ✈️
+    </button>
+  </form>
+</div>
+
+<script>
+function usePrompt(text) {
+  const input = document.getElementById("chat-input");
+  input.value = text;
+  document.getElementById("chat-form").requestSubmit();
+}
+
+const log = document.getElementById("log");
+const chatInput = document.getElementById("chat-input");
+const sendBtn = document.getElementById("send-btn");
+
+function addBubble(role) {
+  const msg = document.createElement("div");
+  msg.className = "msg " + role;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  msg.appendChild(bubble);
+  log.appendChild(msg);
+  log.scrollTop = log.scrollHeight;
+  return bubble;
+}
+
+function extractItineraryPath(text) {
+  const match = text.match(/\/static\/itineraries\/[a-zA-Z0-9_\-\.]+\.md/i) ||
+                text.match(/itinerary_[a-zA-Z0-9_\-]+\.md/i);
+  if (match) {
+    const p = match[0];
+    return p.startsWith("/static/") ? p : "/static/itineraries/" + p;
+  }
+  return null;
+}
+
+function downloadTextAsFile(content, filename) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "travel_itinerary.md";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function renderAgentResponse(bubble, parts) {
+  bubble.innerHTML = "";
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "chat-content";
+
+  let fullText = "";
+  for (const p of parts) {
+    if (p && (p.kind === "text" || !p.kind) && p.text) {
+      fullText += p.text + "\n\n";
+    }
+  }
+
+  if (!fullText.trim()) {
+    contentDiv.textContent = "(The travel planner completed the steps without additional text.)";
+    bubble.appendChild(contentDiv);
+    return;
+  }
+
+  contentDiv.innerHTML = marked.parse(fullText);
+
+  const imgs = contentDiv.querySelectorAll("img");
+  imgs.forEach(img => {
+    const wrap = document.createElement("div");
+    wrap.className = "postcard-wrap";
+    img.parentNode.insertBefore(wrap, img);
+    img.className = "postcard-img";
+    wrap.appendChild(img);
+
+    const caption = document.createElement("div");
+    caption.className = "postcard-caption";
+    caption.innerHTML = "📸 <strong>Destination Illustration</strong>: " + (img.alt || "Scenic View");
+    wrap.appendChild(caption);
+  });
+
+  bubble.appendChild(contentDiv);
+
+  const itineraryPath = extractItineraryPath(fullText);
+  const hasItineraryKeywords = /day 1|itinerary|day 2/i.test(fullText);
+
+  if (itineraryPath || hasItineraryKeywords) {
+    const footer = document.createElement("div");
+    footer.className = "bubble-footer";
+
+    const dlBtn = document.createElement("a");
+    dlBtn.className = "btn-download-md";
+    dlBtn.innerHTML = "📥 Download Markdown Itinerary (.md)";
+
+    if (itineraryPath) {
+      dlBtn.href = itineraryPath;
+      dlBtn.download = itineraryPath.split("/").pop();
+    } else {
+      dlBtn.href = "#";
+      dlBtn.onclick = (e) => {
+        e.preventDefault();
+        downloadTextAsFile(fullText, "travel_itinerary.md");
+      };
+    }
+
+    footer.appendChild(dlBtn);
+
+    const note = document.createElement("span");
+    note.className = "download-note";
+    note.textContent = "Includes complete day-by-day itinerary & transit details";
+    footer.appendChild(note);
+
+    bubble.appendChild(footer);
+  }
+
+  log.scrollTop = log.scrollHeight;
+}
+
+async function handleSend(e) {
+  e.preventDefault();
+  const text = chatInput.value.trim();
+  if (!text) return;
+
+  const userBubble = addBubble("user");
+  userBubble.textContent = text;
+  chatInput.value = "";
+
+  const agentBubble = addBubble("agent");
+
+  const statusSteps = [
+    "Consulting travel databases & Gemini 3.7 Flash...",
+    "Calculating route distances, drive times & flight fares...",
+    "Generating landmark postcard illustration...",
+    "Assembling day-by-day itinerary & export package..."
+  ];
+  let stepIdx = 0;
+
+  function setIndicator() {
+    agentBubble.innerHTML = `<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div><span style="font-size:0.85rem;color:#94a3b8;margin-left:8px;">${statusSteps[stepIdx]}</span></div>`;
+    log.scrollTop = log.scrollHeight;
+  }
+  setIndicator();
+
+  const timer = setInterval(() => {
+    stepIdx = (stepIdx + 1) % statusSteps.length;
+    setIndicator();
+  }, 6000);
+
+  chatInput.disabled = true;
+  sendBtn.disabled = true;
+
+  try {
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ message: text })
+    });
+
+    const raw = await res.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error("Server returned non-JSON response (HTTP " + res.status + ")");
+    }
+
+    clearInterval(timer);
+    renderAgentResponse(agentBubble, data.parts || []);
+  } catch (err) {
+    clearInterval(timer);
+    agentBubble.innerHTML = `<span style="color:#f87171;">⚠️ ${err.message}</span>`;
+  } finally {
+    clearInterval(timer);
+    chatInput.disabled = false;
+    sendBtn.disabled = false;
+    chatInput.focus();
+  }
+}
+</script>
+
+</body>
+</html>
